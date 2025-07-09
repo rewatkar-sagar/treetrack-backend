@@ -2,21 +2,21 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-const { sequelize, Tree } = require('./models/treeModel');
+const { Tree } = require('./models/treeModel'); // assume sequelize instance is inside the model
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// File Upload Config
+// File upload config
 const storage = multer.diskStorage({
   destination: 'uploads/',
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
 });
 const upload = multer({ storage });
 
-// Growth intervals (in days)
+// Growth intervals (days)
 const growthIntervals = {
   Neem: 7,
   Banyan: 10,
@@ -28,18 +28,9 @@ app.post('/upload', upload.single('treeImage'), async (req, res) => {
   try {
     const { userName, species, location } = req.body;
     const imagePath = `/uploads/${req.file.filename}`;
+    const intervalDays = growthIntervals[species] || 7;
 
     const existingTree = await Tree.findOne({ where: { userName, species, location } });
-
-    const intervalDays = growthIntervals[species] || 7;
-    const multer = require('multer');
-
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
-});
-const upload = multer({ storage });
-
 
     if (existingTree) {
       const now = new Date();
@@ -70,11 +61,17 @@ const upload = multer({ storage });
   }
 });
 
-// GET /trees (Optional)
+// GET /trees
 app.get('/trees', async (req, res) => {
-  const trees = await Tree.findAll({ order: [['lastUpdated', 'DESC']] });
-  res.json(trees);
+  try {
+    const trees = await Tree.findAll();
+    res.json(trees);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not fetch trees' });
+  }
 });
+
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
